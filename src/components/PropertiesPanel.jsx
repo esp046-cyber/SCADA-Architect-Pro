@@ -21,6 +21,7 @@ function Field({ label, hint, error, children }) {
   );
 }
 
+
 const numberInput = (value, onChange) => (
   <input
     className={input}
@@ -52,7 +53,8 @@ export default function PropertiesPanel({ node, edge, nodes, io, onUpdateNode, o
       !ipError && ip && nodes.some((o) => o.id !== node.id && (o.data.ip || '') === ip)
         ? 'Another node already uses this IP'
         : null;
-    const reportsTo = role === 'field' ? io.assignment[node.id] || [] : [];
+    // With:
+    const reportsTo = role === 'field' ? io?.assignment?.[node.id] || [] : [];
     const plcInfo = role === 'plc' ? io.perPlc[node.id] : null;
 
     body = (
