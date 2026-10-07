@@ -1,10 +1,46 @@
 # 🏭 SCADA Architect Pro
 
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+
 **A visual, mobile-ready topology and requirement mapping studio engineered specifically for SCADA Systems Integrators and Automation Engineers.**
 
 SCADA Architect Pro allows you to design industrial networks (AVEVA, Siemens, Rockwell, GE), map client requirements to physical hardware, calculate I/O rollups, and instantly generate Bill of Materials (BOM) estimates—all from a browser or as an installable offline Progressive Web App (PWA).
 
 ---
+
+## 📊 Application Architecture
+
+```mermaid
+graph TD
+    A[SCADA Architect Pro] --> B[React Flow Canvas]
+    A --> C[Requirement Matrix]
+    B --> D{Ecosystems}
+    D --> E[Siemens PCS 7]
+    D --> F[AVEVA Wonderware]
+    D --> G[Rockwell FactoryTalk]
+    B --> H[Protocol-Aware Edges]
+    C --> I[BOM & Licensing Export]
+    H --> I
+```
+
+### 3. Add Your Logo and App Screenshots
+To show actual pictures of your app, you need to take screenshots, save them in your `public/` folder, and link to them. 
+
+Add this code where you want the images to appear:
+
+```markdown
+<div align="center">
+  <!-- Replace logo.png with your actual logo file name -->
+  <img src="./public/icon-512.png" alt="SCADA Architect Pro Logo" width="150"/>
+</div>
+
+## 📸 App Preview
+<!-- Save a screenshot as preview.png in your public folder to make this work -->
+![SCADA Architect Pro Interface](./public/preview.png)
+```
+
 
 ## 🚀 Quick Start
 
