@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
+  Panel,
   ReactFlowProvider,
   Background,
   Controls,
@@ -17,6 +18,7 @@ import ReactFlow, {
 import { Server, ListChecks, Plus, X, Tags, Gauge, AlertTriangle } from 'lucide-react';
 import PropertiesPanel from './PropertiesPanel.jsx';
 import EquipmentPanel from './Sidebar/EquipmentPanel.jsx';
+import { ExportButton } from './ExportButton.jsx';
 import { NODE_KINDS, ECOSYSTEMS } from '../lib/ecosystems.js';
 import { networkOf, estimateLicense, computeIoAggregation, toNum, fmt } from '../lib/scada.js';
 
@@ -258,6 +260,10 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
             style={{ background: '#111a2e' }}
             nodeColor={(n) => NODE_KINDS[n.data?.kind]?.color || '#94a3b8'}
           />
+
+          <Panel position="top-right">
+            <ExportButton />
+          </Panel>
         </ReactFlow>
 
         {/* Live licensing / I-O pill */}
