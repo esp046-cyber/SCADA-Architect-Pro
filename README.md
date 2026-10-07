@@ -39,7 +39,6 @@ Add this code where you want the images to appear:
 ## 📸 App Preview
 <!-- Save a screenshot as preview.png in your public folder to make this work -->
 ![SCADA Architect Pro Interface](./public/preview.png)
-```
 
 
 ## 🚀 Quick Start
