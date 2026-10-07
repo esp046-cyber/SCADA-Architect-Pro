@@ -1,14 +1,6 @@
 import { useRef } from 'react';
 import { Factory, Download, FileSpreadsheet, Upload, FilePlus, Share2 } from 'lucide-react';
-
-const KIND_LABELS = {
-  plc_ab: 'PLC - Allen-Bradley',
-  plc_siemens: 'PLC - Siemens',
-  hmi: 'HMI / InTouch Client',
-  historian: 'Wonderware Historian',
-  switch: 'Network Switch',
-  database: 'Database Server',
-};
+import { buildBomCsv } from '../lib/scada.js';
 
 function downloadFile(file) {
   const url = URL.createObjectURL(file);
@@ -48,10 +40,12 @@ export default function Header({ nodes, edges, requirements, onImport, onNew }) 
   const fileRef = useRef(null);
 
   const saveJson = () => {
+    const { licensing } = buildBomCsv({ nodes, edges, requirements });
     const payload = {
       app: 'SCADA Architect Pro',
-      version: 1,
+      version: 2,
       savedAt: new Date().toISOString(),
+      licensing: { totalTags: licensing.total, indicativeTier: licensing.tierName },
       nodes,
       edges,
       requirements,
@@ -65,33 +59,8 @@ export default function Header({ nodes, edges, requirements, onImport, onNew }) 
   };
 
   const exportBom = () => {
-    const counts = {};
-    nodes.forEach((n) => {
-      const kind = n.data?.kind;
-      counts[kind] = (counts[kind] || 0) + 1;
-    });
-    const lines = [
-      'SCADA Architect Pro - Bill of Materials',
-      `Generated: ${new Date().toLocaleString()}`,
-      '',
-      'Item,Qty',
-      ...Object.entries(counts).map(([k, q]) => `"${KIND_LABELS[k] || k}",${q}`),
-      '',
-      'Node Detail',
-      'Name,Type,Linked Requirements',
-      ...nodes.map((n) => {
-        const linked = requirements
-          .filter((r) => r.linkedNodes.includes(n.id))
-          .map((r) => r.text.replace(/"/g, "'"))
-          .join(' | ');
-        return `"${n.data.label}","${KIND_LABELS[n.data.kind] || n.data.kind}","${linked}"`;
-      }),
-      '',
-      `Total nodes,${nodes.length}`,
-      `Total connections,${edges.length}`,
-      `Requirements,${requirements.length}`,
-    ];
-    shareOrDownload('scada-bom.csv', lines.join('\n'), 'text/csv', 'SCADA Bill of Materials');
+    const { csv } = buildBomCsv({ nodes, edges, requirements });
+    shareOrDownload('scada-bom.csv', csv, 'text/csv', 'SCADA Bill of Materials');
   };
 
   const handleFile = (e) => {

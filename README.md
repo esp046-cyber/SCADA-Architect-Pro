@@ -18,3 +18,10 @@ npm run build && npm run preview    # test installability / offline mode
 ## Before launch
 - Replace `https://your-domain.example/` in `index.html`
 - Replace placeholder icons `public/icon-192.png` and `public/icon-512.png`
+
+## SCADA features
+- Tap/click a node: Name, IP address (validated, duplicate warning), Hostname, Estimated Tag Count
+- Tap/click a connection: Protocol (OPC UA, Modbus TCP, Ethernet/IP, SuiteLink, DNP3, SQL, S7Comm, OPC DA) and Network Type (Control / Business LAN / DMZ / Field Bus). Edge colour = network, edge label = protocol
+- Live tag total + indicative licence tier on the canvas
+- BOM CSV: licensing estimate at the top, equipment summary, node detail (IP/hostname/tags), connections (protocol/network)
+- Licence tiers are **indicative** - edit `LICENSE_TIERS` in `src/lib/scada.js` to match the current AVEVA price list
