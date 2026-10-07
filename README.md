@@ -25,10 +25,7 @@ graph TD
     H --> I
 ```
 
-### 3. Add Your Logo and App Screenshots
-To show actual pictures of your app, you need to take screenshots, save them in your `public/` folder, and link to them. 
 
-Add this code where you want the images to appear:
 
 
 <div align="center">
