@@ -52,10 +52,10 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
 
   const metCount = requirements.filter((r) => r.met).length;
   const field =
-    'w-full px-2 py-1.5 text-xs rounded bg-scada-bg border border-scada-line focus:outline-none focus:border-scada-accent';
+    'w-full px-2.5 py-2 md:px-2 md:py-1.5 text-base md:text-xs rounded bg-scada-bg border border-scada-line focus:outline-none focus:border-scada-accent';
 
   return (
-    <aside className="w-full md:w-96 shrink-0 max-h-[45%] md:max-h-none bg-scada-panel border-t md:border-t-0 md:border-l border-scada-line flex flex-col">
+    <aside className="w-full md:w-96 h-full min-h-0 shrink-0 bg-scada-panel md:border-l border-scada-line flex flex-col">
       <div className="px-4 pt-3 pb-2 border-b border-scada-line">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold">Requirement Matrix</h2>
@@ -91,7 +91,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
                     type="button"
                     key={n.id}
                     onClick={() => toggleLink(n.id)}
-                    className={`px-2 py-0.5 rounded-full text-[10px] border ${
+                    className={`px-2.5 py-1 md:px-2 md:py-0.5 rounded-full text-xs md:text-[10px] border ${
                       linked.includes(n.id)
                         ? 'bg-scada-accent text-slate-900 border-scada-accent font-semibold'
                         : 'border-scada-line text-slate-300 hover:border-scada-accent'
@@ -106,7 +106,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-scada-accent text-slate-900 text-xs font-semibold hover:opacity-90"
+            className="w-full flex items-center justify-center gap-1 px-3 py-2.5 md:py-1.5 rounded bg-scada-accent text-slate-900 text-sm md:text-xs font-semibold hover:opacity-90"
           >
             <Plus className="w-3.5 h-3.5" /> Add requirement
           </button>
@@ -122,7 +122,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
         {requirements.map((r) => (
           <li key={r.id} className="rounded-lg border border-scada-line bg-scada-bg p-2.5">
             <div className="flex items-start gap-2">
-              <button onClick={() => toggleMet(r.id)} aria-label="Toggle met" className="mt-0.5 shrink-0">
+              <button onClick={() => toggleMet(r.id)} aria-label="Toggle met" className="mt-0.5 shrink-0 p-1 -m-1">
                 {r.met ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 ) : (
@@ -158,7 +158,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
                   <select
                     value=""
                     onChange={(e) => e.target.value && toggleNodeOnReq(r.id, e.target.value)}
-                    className="mt-1.5 w-full px-1.5 py-1 text-[10px] rounded bg-scada-panel border border-scada-line"
+                    className="mt-1.5 w-full px-1.5 py-2 md:py-1 text-sm md:text-[10px] rounded bg-scada-panel border border-scada-line"
                   >
                     <option value="">+ Link / unlink node…</option>
                     {nodes.map((n) => (
@@ -169,7 +169,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
                   </select>
                 )}
               </div>
-              <button onClick={() => remove(r.id)} aria-label="Delete" className="text-slate-500 hover:text-red-400">
+              <button onClick={() => remove(r.id)} aria-label="Delete" className="text-slate-500 hover:text-red-400 p-1 -m-1">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
