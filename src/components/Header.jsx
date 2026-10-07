@@ -24,7 +24,7 @@ function downloadFile(file) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Opens the native share sheet when supported (phones), otherwise downloads.
+// Opens native share sheet when supported (mobile), otherwise triggers download
 async function shareOrDownload(filename, content, type, title) {
   const file = new File([content], filename, { type });
   try {
@@ -59,9 +59,9 @@ const validWebhook = (u) => {
 };
 
 export default function Header({
-  nodes,
-  edges,
-  requirements,
+  nodes = [],
+  edges = [],
+  requirements = [],
   ecosystem,
   onEcosystemChange,
   onImport,
@@ -86,6 +86,15 @@ export default function Header({
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSettingsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settingsOpen]);
 
   const buildPayload = () => {
     const { licensing, io } = buildBomCsv({ nodes, edges, requirements, ecosystem });
@@ -164,25 +173,24 @@ export default function Header({
     }
   };
 
-const handleFile = (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      if (!parsed || typeof parsed !== 'object') throw new Error();
-      onImport(parsed);
-      notify('success', 'Project loaded successfully.');
-    } catch {
-      notify('error', 'Invalid or corrupted JSON project file.');
-    }
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || typeof parsed !== 'object') throw new Error();
+        onImport(parsed);
+        notify('success', 'Project loaded successfully.');
+      } catch {
+        notify('error', 'Invalid or corrupted JSON project file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
-  reader.readAsText(file);
-  e.target.value = '';
-};
 
-  
   const hasContent = nodes.length > 0 || requirements.length > 0;
 
   const secondary = [
@@ -285,7 +293,7 @@ const handleFile = (e) => {
           >
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold">Sync to Workspace - Webhook</h2>
-              <button onClick={() => setSettingsOpen(false)} aria-label="Close" className="p-1 text-slate-400">
+              <button onClick={() => setSettingsOpen(false)} aria-label="Close" className="p-1 text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
