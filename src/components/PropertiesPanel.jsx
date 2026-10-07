@@ -21,7 +21,6 @@ function Field({ label, hint, error, children }) {
   );
 }
 
-
 const numberInput = (value, onChange) => (
   <input
     className={input}
@@ -35,7 +34,7 @@ const numberInput = (value, onChange) => (
   />
 );
 
-export default function PropertiesPanel({ node, edge, nodes, io, onUpdateNode, onUpdateEdge, onDelete, onClose }) {
+export default function PropertiesPanel({ node, edge, nodes = [], io, onUpdateNode, onUpdateEdge, onDelete, onClose }) {
   if (!node && !edge) return null;
   const nameOf = (id) => nodes.find((n) => n.id === id)?.data?.label || id;
 
@@ -44,18 +43,18 @@ export default function PropertiesPanel({ node, edge, nodes, io, onUpdateNode, o
 
   if (node) {
     title = 'Node Properties';
-    const d = node.data;
+    const d = node.data || {};
     const kind = NODE_KINDS[d.kind];
     const role = kind?.role;
     const ip = d.ip || '';
     const ipError = ip && !isValidIPv4(ip) ? 'Not a valid IPv4 address' : null;
     const dupe =
-      !ipError && ip && nodes.some((o) => o.id !== node.id && (o.data.ip || '') === ip)
+      !ipError && ip && nodes.some((o) => o.id !== node.id && (o.data?.ip || '') === ip)
         ? 'Another node already uses this IP'
         : null;
-    // With:
+
     const reportsTo = role === 'field' ? io?.assignment?.[node.id] || [] : [];
-    const plcInfo = role === 'plc' ? io.perPlc[node.id] : null;
+    const plcInfo = role === 'plc' ? io?.perPlc?.[node.id] : null;
 
     body = (
       <>
@@ -106,7 +105,7 @@ export default function PropertiesPanel({ node, edge, nodes, io, onUpdateNode, o
             <div className="text-[10px] uppercase tracking-wider text-slate-400">Aggregated I/O</div>
             <div className="text-lg font-bold text-scada-accent leading-tight">{fmt(plcInfo.io)}</div>
             <div className="text-[10px] text-slate-400 mt-0.5">
-              {plcInfo.panels.length === 0
+              {!plcInfo.panels || plcInfo.panels.length === 0
                 ? 'No RIO / MCC / ESD panels connected'
                 : `${plcInfo.panels.length} panel${plcInfo.panels.length > 1 ? 's' : ''}: ${plcInfo.panels
                     .map(nameOf)
