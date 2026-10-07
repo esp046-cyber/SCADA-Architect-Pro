@@ -1,34 +1,76 @@
-# SCADA Architect Pro
+# 🏭 SCADA Architect Pro
 
-Topology and requirement mapping studio for Wonderware SCADA engineers (React + Vite + Tailwind + React Flow, installable offline PWA).
+**A visual, mobile-ready topology and requirement mapping studio engineered specifically for SCADA Systems Integrators and Automation Engineers.**
 
-## Run
+SCADA Architect Pro allows you to design industrial networks (AVEVA, Siemens, Rockwell, GE), map client requirements to physical hardware, calculate I/O rollups, and instantly generate Bill of Materials (BOM) estimates—all from a browser or as an installable offline Progressive Web App (PWA).
+
+---
+
+## 🚀 Quick Start
+
+Ensure you have Node.js installed, then clone the repository and run:
+
 ```bash
+# 1. Install dependencies
 npm install
-npm run dev                         # development (service worker disabled)
-npm run build && npm run preview    # test installability / offline mode
+
+# 2. Run the development server (Service worker disabled for live-reloading)
+npm run dev
+
+# 3. Test production build & PWA installability (Offline mode)
+npm run build && npm run preview
 ```
 
-## Mobile features
-- Bottom tab bar (Studio / Requirements) on phones; split-pane layout on desktop
-- Floating "+" button opens an equipment bottom sheet (tap to add)
-- Auto-save to localStorage (restored on reopen); "New" clears the project
-- Native share sheet for BOM (CSV) and project (JSON) via `navigator.share`, with download fallback
+---
 
-## Before launch
-- Replace `https://your-domain.example/` in `index.html`
-- Replace placeholder icons `public/icon-192.png` and `public/icon-512.png`
+## 📱 Mobile-First Design
 
-## SCADA features
-- Tap/click a node: Name, IP address (validated, duplicate warning), Hostname, Estimated Tag Count
-- Tap/click a connection: Protocol (OPC UA, Modbus TCP, Ethernet/IP, SuiteLink, DNP3, SQL, S7Comm, OPC DA) and Network Type (Control / Business LAN / DMZ / Field Bus). Edge colour = network, edge label = protocol
-- Live tag total + indicative licence tier on the canvas
-- BOM CSV: licensing estimate at the top, equipment summary, node detail (IP/hostname/tags), connections (protocol/network)
-- Licence tiers are **indicative** - edit `LICENSE_TIERS` in `src/lib/scada.js` to match the current AVEVA price list
+SCADA Architect Pro is designed to go to the field with you. Install it on your tablet or smartphone directly from the browser.
 
-## Multi-ecosystem / high-availability features
-- **SCADA Ecosystem** dropdown (AVEVA, Siemens WinCC/PCS 7, Rockwell FactoryTalk, GE iFIX) changes the equipment palette. Edit `src/lib/ecosystems.js` to add or change equipment.
-- **Field & control nodes**: Remote I/O panel, MCC / VFD panel, ESD. Each has an *I/O Count* that rolls up to the nearest connected PLC (through switches); PLC nodes show the aggregate, unassigned panels are flagged.
-- **Dual Redundant Ring** toggle on connections renders a double line with a "Dual Ring" label.
-- **Sync to Workspace**: POSTs `nodes`, `edges`, `requirements` (+ ecosystem, licensing, I/O summary) to a webhook (e.g. n8n). Set the URL via the Webhook setting. The n8n Webhook node needs this app's origin in "Allowed Origins (CORS)".
-- Licence tier tables are indicative; Rockwell and GE have none configured yet (`tiers: null` in `ecosystems.js`).
+| 🛠️ Features | Description |
+| :--- | :--- |
+| **App-Like Navigation** | Bottom tab bar separates the "Studio" canvas and "Requirements" matrix on mobile devices. |
+| **Quick Add FAB** | Tap the floating `+` button to open the equipment drawer without cluttering the screen. |
+| **Auto-Save & Offline** | Edits sync immediately to `localStorage`. Close the app and resume exactly where you left off. |
+| **Native Sharing** | Export project JSON or BOM CSVs directly to WhatsApp, Slack, or Email via the native mobile share sheet (`navigator.share`). |
+
+---
+
+## ⚙️ Engineering & SCADA Features
+
+Stop drawing static boxes. These nodes are aware of industrial protocols and hardware limits.
+
+### 🌐 Smart Topology & Networks
+*   **Node Properties:** Tap any node to assign **Name, IP Address, Hostname, and Tag Counts**. Built-in validation warns you of duplicate IP addresses.
+*   **Protocol-Aware Edges:** Connections aren't just lines. Select industrial protocols (*OPC UA, Modbus TCP, Ethernet/IP, SuiteLink, S7Comm*) and Network Types (*Control, Business LAN, DMZ*). Colors automatically route based on network classification.
+*   **Redundant Networking:** Toggle **"Dual Redundant Ring"** on connections to render double-lines (perfect for fibre-optic or redundant profibus architectures).
+
+### 🏗️ Ecosystems & Hardware
+*   **Multi-Platform Palettes:** Use the top dropdown to switch environments. The equipment sidebar dynamically changes for **AVEVA, Siemens WinCC/PCS 7, Rockwell FactoryTalk, or GE iFIX**.
+*   **Field Device Rollup:** Drop Remote I/O (RIO), MCC/VFDs, or ESD panels onto the canvas. Assign an *I/O Count* to the panel, and it automatically aggregates up through the network switches to the nearest PLC.
+*   *Need custom hardware? Edit `src/lib/ecosystems.js`.*
+
+### 💰 Automated Licensing & BOM
+*   **Live Tag Totals:** The canvas displays a running total of tags and estimates the required software license tier.
+*   **Comprehensive BOM Export:** Download a CSV that includes licensing estimates, equipment summaries, detailed node properties, and protocol mapping.
+*   *Licensing is indicative. To match your vendor's current price list, edit `LICENSE_TIERS` in `src/lib/scada.js`.*
+
+---
+
+## 🔌 API & Integration
+
+### Sync to Workspace (Webhook)
+Integrate your architecture directly into your company's estimation pipeline.
+
+1.  Click **"Sync to Workspace"**.
+2.  The app POSTs a structured JSON payload containing `nodes`, `edges`, `requirements`, ecosystem data, licensing, and I/O summaries to a webhook (e.g., n8n, Make, or Zapier).
+3.  *Note: Configure your webhook URL in the settings. Ensure your automation platform has this app's origin allowed in CORS.*
+
+---
+
+## 🛠️ Pre-Launch Checklist
+
+Before deploying this to your own server or GitHub Pages:
+- [ ] Open `index.html` and replace `https://your-domain.example/` with your actual URL.
+- [ ] Replace the placeholder PWA icons (`public/icon-192.png` and `public/icon-512.png`) with your company logo.
+- [ ] Update `manifest.webmanifest` with your desired app name and theme colors.
