@@ -164,21 +164,25 @@ export default function Header({
     }
   };
 
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        onImport(JSON.parse(reader.result));
-      } catch {
-        alert('Invalid project file.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
+const handleFile = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!parsed || typeof parsed !== 'object') throw new Error();
+      onImport(parsed);
+      notify('success', 'Project loaded successfully.');
+    } catch {
+      notify('error', 'Invalid or corrupted JSON project file.');
+    }
   };
+  reader.readAsText(file);
+  e.target.value = '';
+};
 
+  
   const hasContent = nodes.length > 0 || requirements.length > 0;
 
   const secondary = [
