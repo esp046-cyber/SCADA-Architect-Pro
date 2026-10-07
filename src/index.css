@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: #0b1220; color: #e2e8f0; font-family: Inter, system-ui, sans-serif; }
+
+.react-flow__attribution { display: none; }
+.react-flow__controls button { background: #111a2e; color: #e2e8f0; border-bottom: 1px solid #22304d; }
+.react-flow__controls button:hover { background: #1b2a4a; }
+.react-flow__controls button svg { fill: currentColor; }
