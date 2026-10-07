@@ -25,3 +25,10 @@ npm run build && npm run preview    # test installability / offline mode
 - Live tag total + indicative licence tier on the canvas
 - BOM CSV: licensing estimate at the top, equipment summary, node detail (IP/hostname/tags), connections (protocol/network)
 - Licence tiers are **indicative** - edit `LICENSE_TIERS` in `src/lib/scada.js` to match the current AVEVA price list
+
+## Multi-ecosystem / high-availability features
+- **SCADA Ecosystem** dropdown (AVEVA, Siemens WinCC/PCS 7, Rockwell FactoryTalk, GE iFIX) changes the equipment palette. Edit `src/lib/ecosystems.js` to add or change equipment.
+- **Field & control nodes**: Remote I/O panel, MCC / VFD panel, ESD. Each has an *I/O Count* that rolls up to the nearest connected PLC (through switches); PLC nodes show the aggregate, unassigned panels are flagged.
+- **Dual Redundant Ring** toggle on connections renders a double line with a "Dual Ring" label.
+- **Sync to Workspace**: POSTs `nodes`, `edges`, `requirements` (+ ecosystem, licensing, I/O summary) to a webhook (e.g. n8n). Set the URL via the Webhook setting. The n8n Webhook node needs this app's origin in "Allowed Origins (CORS)".
+- Licence tier tables are indicative; Rockwell and GE have none configured yet (`tiers: null` in `ecosystems.js`).

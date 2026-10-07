@@ -1,5 +1,6 @@
 import { X, Trash2, ArrowRight, AlertTriangle } from 'lucide-react';
-import { PROTOCOLS, NETWORK_TYPES, KIND_LABELS, isValidIPv4 } from '../lib/scada.js';
+import { PROTOCOLS, NETWORK_TYPES, isValidIPv4, fmt } from '../lib/scada.js';
+import { NODE_KINDS } from '../lib/ecosystems.js';
 
 const input =
   'w-full px-2.5 py-2 md:px-2 md:py-1.5 text-base md:text-xs rounded bg-scada-bg border border-scada-line focus:outline-none focus:border-scada-accent';
@@ -11,7 +12,7 @@ function Field({ label, hint, error, children }) {
       {children}
       {error ? (
         <span className="flex items-center gap-1 mt-1 text-[10px] text-amber-400">
-          <AlertTriangle className="w-3 h-3" /> {error}
+          <AlertTriangle className="w-3 h-3 shrink-0" /> {error}
         </span>
       ) : (
         hint && <span className="block mt-1 text-[10px] text-slate-500">{hint}</span>
@@ -20,7 +21,20 @@ function Field({ label, hint, error, children }) {
   );
 }
 
-export default function PropertiesPanel({ node, edge, nodes, onUpdateNode, onUpdateEdge, onDelete, onClose }) {
+const numberInput = (value, onChange) => (
+  <input
+    className={input}
+    type="number"
+    inputMode="numeric"
+    min="0"
+    step="1"
+    placeholder="0"
+    value={value ?? ''}
+    onChange={(e) => onChange(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
+  />
+);
+
+export default function PropertiesPanel({ node, edge, nodes, io, onUpdateNode, onUpdateEdge, onDelete, onClose }) {
   if (!node && !edge) return null;
   const nameOf = (id) => nodes.find((n) => n.id === id)?.data?.label || id;
 
@@ -30,16 +44,20 @@ export default function PropertiesPanel({ node, edge, nodes, onUpdateNode, onUpd
   if (node) {
     title = 'Node Properties';
     const d = node.data;
+    const kind = NODE_KINDS[d.kind];
+    const role = kind?.role;
     const ip = d.ip || '';
     const ipError = ip && !isValidIPv4(ip) ? 'Not a valid IPv4 address' : null;
     const dupe =
       !ipError && ip && nodes.some((o) => o.id !== node.id && (o.data.ip || '') === ip)
         ? 'Another node already uses this IP'
         : null;
+    const reportsTo = role === 'field' ? io.assignment[node.id] || [] : [];
+    const plcInfo = role === 'plc' ? io.perPlc[node.id] : null;
 
     body = (
       <>
-        <p className="text-[11px] text-slate-400">{KIND_LABELS[d.kind] || d.kind}</p>
+        <p className="text-[11px] text-slate-400">{kind?.label || d.kind}</p>
         <Field label="Name">
           <input className={input} value={d.label || ''} onChange={(e) => onUpdateNode(node.id, { label: e.target.value })} />
         </Field>
@@ -60,27 +78,46 @@ export default function PropertiesPanel({ node, edge, nodes, onUpdateNode, onUpd
             onChange={(e) => onUpdateNode(node.id, { hostname: e.target.value.trim() })}
           />
         </Field>
-        <Field label="Estimated Tag Count" hint="Drives the System Platform licensing estimate">
-          <input
-            className={input}
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            placeholder="0"
-            value={d.tagCount ?? ''}
-            onChange={(e) =>
-              onUpdateNode(node.id, {
-                tagCount: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0),
-              })
-            }
-          />
-        </Field>
+
+        {role === 'field' ? (
+          <Field
+            label="I/O Count"
+            hint="Rolls up to the connected PLC (directly or through switches)"
+            error={reportsTo.length === 0 ? 'Not connected to any PLC - this I/O is unassigned' : null}
+          >
+            {numberInput(d.ioCount, (v) => onUpdateNode(node.id, { ioCount: v }))}
+          </Field>
+        ) : (
+          <Field label="Estimated Tag Count" hint="Drives the licensing estimate">
+            {numberInput(d.tagCount, (v) => onUpdateNode(node.id, { tagCount: v }))}
+          </Field>
+        )}
+
+        {role === 'field' && reportsTo.length > 0 && (
+          <p className="text-[11px] text-slate-300">
+            Reports to: <span className="text-scada-accent">{reportsTo.map(nameOf).join(', ')}</span>
+          </p>
+        )}
+
+        {plcInfo && (
+          <div className="rounded border border-scada-line bg-scada-bg p-2.5">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Aggregated I/O</div>
+            <div className="text-lg font-bold text-scada-accent leading-tight">{fmt(plcInfo.io)}</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {plcInfo.panels.length === 0
+                ? 'No RIO / MCC / ESD panels connected'
+                : `${plcInfo.panels.length} panel${plcInfo.panels.length > 1 ? 's' : ''}: ${plcInfo.panels
+                    .map(nameOf)
+                    .join(', ')}`}
+            </div>
+          </div>
+        )}
       </>
     );
   } else {
     title = 'Connection Properties';
     const d = edge.data || {};
+    const redundant = !!d.redundant;
     body = (
       <>
         <p className="flex items-center gap-1.5 text-xs text-slate-300 min-w-0">
@@ -112,6 +149,29 @@ export default function PropertiesPanel({ node, edge, nodes, onUpdateNode, onUpd
             ))}
           </select>
         </Field>
+
+        <div className="flex items-center justify-between gap-3 rounded border border-scada-line bg-scada-bg p-2.5">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold">Dual Redundant Ring</div>
+            <div className="text-[10px] text-slate-400">Fibre-optic or redundant PROFIBUS / PROFINET ring</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={redundant}
+            aria-label="Dual Redundant Ring"
+            onClick={() => onUpdateEdge(edge.id, { redundant: !redundant })}
+            className={`relative shrink-0 w-12 h-7 md:w-10 md:h-6 rounded-full transition-colors ${
+              redundant ? 'bg-scada-accent' : 'bg-slate-600'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-6 h-6 md:w-5 md:h-5 rounded-full bg-white transition-transform ${
+                redundant ? 'translate-x-5 md:translate-x-4' : ''
+              }`}
+            />
+          </button>
+        </div>
       </>
     );
   }

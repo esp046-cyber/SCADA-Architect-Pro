@@ -14,24 +14,19 @@ import ReactFlow, {
   applyEdgeChanges,
   useReactFlow,
 } from 'reactflow';
-import { Cpu, Monitor, Database, Network, HardDrive, Server, ListChecks, Plus, X, Tags } from 'lucide-react';
+import { Server, ListChecks, Plus, X, Tags, Gauge, AlertTriangle } from 'lucide-react';
 import PropertiesPanel from './PropertiesPanel.jsx';
-import { networkOf, estimateLicense, toNum, fmt } from '../lib/scada.js';
-
-export const NODE_KINDS = {
-  plc_ab: { label: 'Allen-Bradley PLC', icon: Cpu, color: '#f97316' },
-  plc_siemens: { label: 'Siemens PLC', icon: Cpu, color: '#14b8a6' },
-  hmi: { label: 'HMI / InTouch', icon: Monitor, color: '#22d3ee' },
-  historian: { label: 'Historian', icon: HardDrive, color: '#a78bfa' },
-  switch: { label: 'Network Switch', icon: Network, color: '#facc15' },
-  database: { label: 'Database (SQL)', icon: Database, color: '#f472b6' },
-};
+import EquipmentPanel from './Sidebar/EquipmentPanel.jsx';
+import { NODE_KINDS, ECOSYSTEMS } from '../lib/ecosystems.js';
+import { networkOf, estimateLicense, computeIoAggregation, toNum, fmt } from '../lib/scada.js';
 
 /* ---------- Custom node ---------- */
 function ScadaNode({ data, selected }) {
-  const kind = NODE_KINDS[data.kind] || { icon: Server, color: '#94a3b8', label: 'Node' };
+  const kind = NODE_KINDS[data.kind] || { icon: Server, color: '#94a3b8', label: 'Node', role: '' };
   const Icon = kind.icon;
   const tags = toNum(data.tagCount);
+  const io = toNum(data.ioCount);
+  const isField = kind.role === 'field';
   return (
     <div
       className="rounded-lg bg-scada-panel px-3 py-2 min-w-[150px] shadow-lg"
@@ -52,9 +47,22 @@ function ScadaNode({ data, selected }) {
           </span>
         )}
       </div>
-      {tags > 0 && (
+      {!isField && tags > 0 && (
         <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
           <Tags className="w-3 h-3" /> {fmt(tags)} tags
+        </div>
+      )}
+      {isField && (
+        <div
+          className={`mt-1 flex items-center gap-1 text-[10px] ${data.ioUnassigned ? 'text-amber-400' : 'text-slate-400'}`}
+        >
+          {data.ioUnassigned ? <AlertTriangle className="w-3 h-3" /> : <Gauge className="w-3 h-3" />}
+          {fmt(io)} I/O{data.ioUnassigned ? ' · no PLC' : ''}
+        </div>
+      )}
+      {kind.role === 'plc' && data.aggIO > 0 && (
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-scada-accent">
+          <Gauge className="w-3 h-3" /> Σ {fmt(data.aggIO)} I/O · {data.aggPanels} panel{data.aggPanels > 1 ? 's' : ''}
         </div>
       )}
       <Handle type="source" position={Position.Bottom} className="!bg-slate-300 !w-3 !h-3" />
@@ -62,20 +70,35 @@ function ScadaNode({ data, selected }) {
   );
 }
 
-/* ---------- Custom edge (protocol + network aware) ---------- */
+/* ---------- Custom edge: protocol, network and dual-ring aware ---------- */
 function ScadaEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const net = networkOf(data?.network);
+  const redundant = !!data?.redundant;
   const proto = data?.protocol && data.protocol !== 'Default' ? data.protocol : '';
-  const label = [proto, net.short].filter(Boolean).join(' · ');
+  const label = [proto, net.short, redundant ? 'Dual Ring' : ''].filter(Boolean).join(' · ');
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
         interactionWidth={36}
-        style={{ stroke: net.color, strokeWidth: selected ? 4 : 2, strokeDasharray: net.dash }}
+        style={{
+          stroke: net.color,
+          strokeWidth: redundant ? (selected ? 11 : 8) : selected ? 4 : 2,
+          strokeDasharray: net.dash,
+        }}
       />
+      {/* Dark centre line turns the thick stroke into a double line (ring) */}
+      {redundant && (
+        <path
+          d={path}
+          fill="none"
+          stroke="#0b1220"
+          strokeWidth={selected ? 5 : 3}
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
       {label && (
         <EdgeLabelRenderer>
           <div
@@ -100,35 +123,46 @@ const edgeTypes = { scada: ScadaEdge };
 let idCounter = Date.now();
 const nextId = () => `node_${idCounter++}`;
 
-function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
+function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
   const [sel, setSel] = useState(null); // { type: 'node' | 'edge', id }
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const io = useMemo(() => computeIoAggregation(nodes, edges), [nodes, edges]);
+  const lic = useMemo(() => estimateLicense(nodes, ecosystem), [nodes, ecosystem]);
+
   const displayNodes = useMemo(
     () =>
       nodes.map((n) => ({
         ...n,
-        data: { ...n.data, reqCount: requirements.filter((r) => r.linkedNodes.includes(n.id)).length },
+        data: {
+          ...n.data,
+          reqCount: requirements.filter((r) => r.linkedNodes.includes(n.id)).length,
+          aggIO: io.perPlc[n.id]?.io || 0,
+          aggPanels: io.perPlc[n.id]?.panels.length || 0,
+          ioUnassigned: io.unassigned.includes(n.id),
+        },
       })),
-    [nodes, requirements]
+    [nodes, requirements, io]
   );
 
-  // Force the custom edge type so projects saved before this version still render
+  // Force the custom edge type so older saved projects still render
   const displayEdges = useMemo(() => edges.map((e) => ({ ...e, type: 'scada', animated: false })), [edges]);
 
   const selectedNode = sel?.type === 'node' ? nodes.find((n) => n.id === sel.id) : null;
   const selectedEdge = sel?.type === 'edge' ? edges.find((e) => e.id === sel.id) : null;
   const panelOpen = !!(selectedNode || selectedEdge);
-  const lic = useMemo(() => estimateLicense(nodes), [nodes]);
 
   const onNodesChange = useCallback((c) => setNodes((ns) => applyNodeChanges(c, ns)), [setNodes]);
   const onEdgesChange = useCallback((c) => setEdges((es) => applyEdgeChanges(c, es)), [setEdges]);
   const onConnect = useCallback(
     (p) =>
       setEdges((es) =>
-        addEdge({ ...p, type: 'scada', data: { protocol: 'Default', network: 'unspecified' } }, es)
+        addEdge(
+          { ...p, type: 'scada', data: { protocol: 'Default', network: 'unspecified', redundant: false } },
+          es
+        )
       ),
     [setEdges]
   );
@@ -139,16 +173,13 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
   };
 
   const addNode = (kind, position) => {
+    const def = NODE_KINDS[kind];
+    if (!def) return;
     const count = nodes.filter((n) => n.data.kind === kind).length + 1;
-    setNodes((ns) => [
-      ...ns,
-      {
-        id: nextId(),
-        type: 'scada',
-        position,
-        data: { kind, label: `${NODE_KINDS[kind].label} ${count}`, ip: '', hostname: '', tagCount: 0 },
-      },
-    ]);
+    const data = { kind, label: `${def.label} ${count}`, ip: '', hostname: '' };
+    if (def.role === 'field') data.ioCount = 0;
+    else data.tagCount = 0;
+    setNodes((ns) => [...ns, { id: nextId(), type: 'scada', position, data }]);
   };
 
   const onDrop = (e) => {
@@ -183,27 +214,9 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
 
   return (
     <div className="h-full flex relative">
-      {/* Desktop palette */}
-      <aside className="hidden md:block w-40 shrink-0 bg-scada-panel border-r border-scada-line p-2 overflow-y-auto">
-        <h2 className="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Equipment</h2>
-        <div className="space-y-1.5">
-          {Object.entries(NODE_KINDS).map(([kind, { label, icon: Icon, color }]) => (
-            <div
-              key={kind}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/scada-kind', kind);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-              onClick={() => addByTap(kind)}
-              title="Drag onto canvas, or click to add"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-scada-line bg-scada-bg cursor-grab hover:border-scada-accent text-xs"
-            >
-              <Icon className="w-4 h-4 shrink-0" style={{ color }} />
-              <span className="truncate">{label}</span>
-            </div>
-          ))}
-        </div>
+      {/* Desktop palette (ecosystem-aware) */}
+      <aside className="hidden md:block w-48 shrink-0 bg-scada-panel border-r border-scada-line p-2 overflow-y-auto">
+        <EquipmentPanel ecosystem={ecosystem} onAdd={addByTap} variant="sidebar" />
       </aside>
 
       {/* Canvas */}
@@ -247,11 +260,19 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
           />
         </ReactFlow>
 
-        {/* Live licensing pill */}
+        {/* Live licensing / I-O pill */}
         {nodes.length > 0 && (
-          <div className="absolute top-2 left-2 z-10 px-2.5 py-1 rounded-full bg-scada-panel/95 border border-scada-line text-[11px] shadow">
-            <span className="font-semibold text-scada-accent">{fmt(lic.total)}</span> tags ·{' '}
-            <span className="text-slate-300">{lic.tierName}</span>
+          <div className="absolute top-2 left-2 right-2 z-10 pointer-events-none flex flex-wrap gap-1.5">
+            <span className="px-2.5 py-1 rounded-full bg-scada-panel/95 border border-scada-line text-[11px] shadow">
+              <span className="font-semibold text-scada-accent">{fmt(lic.total)}</span> tags ·{' '}
+              <span className="text-slate-300">{lic.tierName}</span>
+            </span>
+            {io.totalIO > 0 && (
+              <span className="px-2.5 py-1 rounded-full bg-scada-panel/95 border border-scada-line text-[11px] shadow">
+                <span className="font-semibold text-scada-accent">{fmt(io.totalIO)}</span> field I/O
+                {io.unassigned.length > 0 && <span className="text-amber-400"> · {io.unassigned.length} unassigned</span>}
+              </span>
+            )}
           </div>
         )}
 
@@ -281,23 +302,12 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold">Add equipment</h2>
+            <h2 className="text-sm font-bold">Add equipment · {ECOSYSTEMS[ecosystem]?.short}</h2>
             <button onClick={() => setSheetOpen(false)} aria-label="Close" className="p-1 text-slate-400">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {Object.entries(NODE_KINDS).map(([kind, { label, icon: Icon, color }]) => (
-              <button
-                key={kind}
-                onClick={() => addByTap(kind)}
-                className="flex items-center gap-2.5 px-3 py-3.5 rounded-lg border border-scada-line bg-scada-bg active:border-scada-accent text-sm text-left"
-              >
-                <Icon className="w-6 h-6 shrink-0" style={{ color }} />
-                <span className="leading-tight">{label}</span>
-              </button>
-            ))}
-          </div>
+          <EquipmentPanel ecosystem={ecosystem} onAdd={addByTap} variant="sheet" />
         </div>
       </div>
 
@@ -306,6 +316,7 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements }) {
         node={selectedNode}
         edge={selectedEdge}
         nodes={nodes}
+        io={io}
         onUpdateNode={updateNode}
         onUpdateEdge={updateEdge}
         onDelete={deleteSelection}

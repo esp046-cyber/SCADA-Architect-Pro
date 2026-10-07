@@ -1,16 +1,35 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { RefreshCw, WifiOff, X, Network, ListChecks } from 'lucide-react';
+import { RefreshCw, WifiOff, X, Network, ListChecks, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import Header from './components/Header.jsx';
 import TopologyStudio from './components/TopologyStudio.jsx';
 import RequirementPanel from './components/RequirementPanel.jsx';
 import useLocalStorage from './hooks/useLocalStorage.js';
+import { ECOSYSTEMS, DEFAULT_ECOSYSTEM } from './lib/ecosystems.js';
+
+const TOAST_STYLE = {
+  success: { Icon: CheckCircle2, cls: 'border-emerald-500/60 text-emerald-300' },
+  error: { Icon: AlertTriangle, cls: 'border-red-500/60 text-red-300' },
+  info: { Icon: Info, cls: 'border-scada-accent/60 text-scada-accent' },
+};
 
 export default function App() {
   const [nodes, setNodes] = useLocalStorage('sap:nodes', []);
   const [edges, setEdges] = useLocalStorage('sap:edges', []);
   const [requirements, setRequirements] = useLocalStorage('sap:requirements', []);
+  const [storedEco, setEcosystem] = useLocalStorage('sap:ecosystem', DEFAULT_ECOSYSTEM);
+  const [webhookUrl, setWebhookUrl] = useLocalStorage('sap:webhook', '');
   const [tab, setTab] = useState('studio'); // mobile only
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+
+  const ecosystem = ECOSYSTEMS[storedEco] ? storedEco : DEFAULT_ECOSYSTEM;
+
+  const notify = useCallback((type, msg) => {
+    clearTimeout(toastTimer.current);
+    setToast({ type, msg });
+    toastTimer.current = setTimeout(() => setToast(null), type === 'error' ? 6000 : 3500);
+  }, []);
 
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -28,8 +47,9 @@ export default function App() {
       setNodes(data.nodes || []);
       setEdges(data.edges || []);
       setRequirements(data.requirements || []);
+      if (data.ecosystem && ECOSYSTEMS[data.ecosystem]) setEcosystem(data.ecosystem);
     },
-    [setNodes, setEdges, setRequirements]
+    [setNodes, setEdges, setRequirements, setEcosystem]
   );
 
   const handleNew = useCallback(() => {
@@ -63,6 +83,8 @@ export default function App() {
     </button>
   );
 
+  const T = toast ? TOAST_STYLE[toast.type] || TOAST_STYLE.info : null;
+
   return (
     <div className="h-full flex flex-col bg-scada-bg">
       <div className="safe-top bg-scada-panel">
@@ -70,8 +92,13 @@ export default function App() {
           nodes={nodes}
           edges={edges}
           requirements={requirements}
+          ecosystem={ecosystem}
+          onEcosystemChange={setEcosystem}
           onImport={handleImport}
           onNew={handleNew}
+          webhookUrl={webhookUrl}
+          onWebhookUrlChange={setWebhookUrl}
+          notify={notify}
         />
       </div>
 
@@ -85,6 +112,7 @@ export default function App() {
               edges={edges}
               setEdges={setEdges}
               requirements={requirements}
+              ecosystem={ecosystem}
             />
           </div>
         </div>
@@ -103,6 +131,21 @@ export default function App() {
         {tabBtn('studio', Network, 'Studio', 0)}
         {tabBtn('requirements', ListChecks, 'Requirements', unmapped)}
       </nav>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed z-[60] top-[calc(env(safe-area-inset-top,0px)+4rem)] inset-x-4 md:inset-x-auto md:right-4 md:w-80 flex items-start gap-2.5 bg-scada-panel border rounded-lg shadow-xl px-3 py-2.5 text-sm ${T.cls}`}
+        >
+          <T.Icon className="w-5 h-5 shrink-0 mt-0.5" />
+          <p className="flex-1 text-slate-100">{toast.msg}</p>
+          <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-slate-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {(offlineReady || needRefresh) && (
         <div
