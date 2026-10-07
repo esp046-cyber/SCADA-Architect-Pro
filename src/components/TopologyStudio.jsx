@@ -15,20 +15,128 @@ import ReactFlow, {
   applyEdgeChanges,
   useReactFlow,
 } from 'reactflow';
-import { Server, ListChecks, Plus, X, Tags, Gauge, AlertTriangle } from 'lucide-react';
+import {
+  Server,
+  ListChecks,
+  Plus,
+  X,
+  Tags,
+  Gauge,
+  AlertTriangle,
+  ShieldAlert,
+  RefreshCw,
+  Cpu,
+} from 'lucide-react';
 import PropertiesPanel from './PropertiesPanel.jsx';
 import EquipmentPanel from './Sidebar/EquipmentPanel.jsx';
 import { ExportButton } from './ExportButton.jsx';
 import { NODE_KINDS, ECOSYSTEMS } from '../lib/ecosystems.js';
-import { networkOf, estimateLicense, computeIoAggregation, toNum, fmt } from '../lib/scada.js';
+import {
+  networkOf,
+  estimateLicense,
+  computeIoAggregation,
+  toNum,
+  fmt,
+  PROTOCOLS,
+  NETWORK_ZONES,
+} from '../lib/scada.js';
 
-/* ---------- Custom node ---------- */
+/* ---------- Custom SVG Edge for Network Zones ---------- */
+export function ProtocolEdge({ id, sourceX, sourceY, targetX, targetY, protocol = 'opcua', zone = 'control' }) {
+  const edgeZone = NETWORK_ZONES[zone] || NETWORK_ZONES.control;
+  const protoData = PROTOCOLS[protocol] || { label: protocol.toUpperCase() };
+
+  const midX = (sourceX + targetX) / 2;
+  const midY = (sourceY + targetY) / 2;
+
+  const path = `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY + targetY) / 2}, ${targetX} ${(sourceY + targetY) / 2}, ${targetX} ${targetY}`;
+
+  return (
+    <g className="group cursor-pointer">
+      <path
+        d={path}
+        fill="none"
+        stroke={edgeZone.color}
+        strokeWidth={2}
+        strokeDasharray={edgeZone.borderStyle === 'dashed' ? '5,5' : edgeZone.borderStyle === 'dotted' ? '2,2' : 'none'}
+        className="transition-all group-hover:stroke-scada-accent group-hover:stroke-[3px]"
+      />
+      <foreignObject x={midX - 40} y={midY - 12} width={80} height={24}>
+        <div className="flex items-center justify-center">
+          <span
+            style={{ borderColor: edgeZone.color }}
+            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-scada-bg text-slate-200 border shadow-md truncate max-w-[76px]"
+          >
+            {protoData.label}
+          </span>
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
+/* ---------- High-Density Node Component Card ---------- */
+export function DenseNodeCard({ node, selected, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`w-64 rounded-lg bg-scada-panel border transition-all p-2.5 select-none ${
+        selected ? 'border-scada-accent shadow-lg shadow-scada-accent/10 ring-1 ring-scada-accent' : 'border-scada-line hover:border-slate-500'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-scada-line/60 pb-1.5 mb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Cpu className="w-4 h-4 text-scada-accent shrink-0" />
+          <span className="text-xs font-bold text-slate-100 truncate">{node.label}</span>
+        </div>
+        {node.redundancy && node.redundancy !== 'None' && (
+          <span title={`Redundancy: ${node.redundancy}`} className="flex items-center gap-1 px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-mono">
+            <RefreshCw className="w-2.5 h-2.5 animate-spin-slow" /> HA
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-slate-300 bg-scada-bg/60 p-1.5 rounded border border-scada-line/40 mb-2">
+        <div>
+          <span className="text-slate-500 block text-[8px] uppercase">IP Address</span>
+          <span className="text-scada-accent font-semibold">{node.ipAddress || '192.168.1.X'}</span>
+        </div>
+        <div>
+          <span className="text-slate-500 block text-[8px] uppercase">VLAN ID</span>
+          <span>{node.vlan || 'VLAN 10'}</span>
+        </div>
+        <div>
+          <span className="text-slate-500 block text-[8px] uppercase">Tag Count</span>
+          <span>{(node.tagCount || 0).toLocaleString()} Tags</span>
+        </div>
+        <div>
+          <span className="text-slate-500 block text-[8px] uppercase">I/O Points</span>
+          <span>{node.ioCount || 0} Points</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
+        <span className="truncate max-w-[120px]" title={node.firmware}>
+          FW: {node.firmware || 'v1.0.0'}
+        </span>
+        {node.sil && node.sil !== 'None' && (
+          <span className="flex items-center gap-1 text-amber-400 font-bold bg-amber-400/10 px-1 rounded">
+            <ShieldAlert className="w-3 h-3" /> {node.sil}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Custom Node ---------- */
 function ScadaNode({ data, selected }) {
   const kind = NODE_KINDS[data.kind] || { icon: Server, color: '#94a3b8', label: 'Node', role: '' };
   const Icon = kind.icon;
   const tags = toNum(data.tagCount);
   const io = toNum(data.ioCount);
   const isField = kind.role === 'field';
+
   return (
     <div
       className="rounded-lg bg-scada-panel px-3 py-2 min-w-[150px] shadow-lg"
@@ -55,9 +163,7 @@ function ScadaNode({ data, selected }) {
         </div>
       )}
       {isField && (
-        <div
-          className={`mt-1 flex items-center gap-1 text-[10px] ${data.ioUnassigned ? 'text-amber-400' : 'text-slate-400'}`}
-        >
+        <div className={`mt-1 flex items-center gap-1 text-[10px] ${data.ioUnassigned ? 'text-amber-400' : 'text-slate-400'}`}>
           {data.ioUnassigned ? <AlertTriangle className="w-3 h-3" /> : <Gauge className="w-3 h-3" />}
           {fmt(io)} I/O{data.ioUnassigned ? ' · no PLC' : ''}
         </div>
@@ -72,13 +178,14 @@ function ScadaNode({ data, selected }) {
   );
 }
 
-/* ---------- Custom edge: protocol, network and dual-ring aware ---------- */
+/* ---------- Custom Edge ---------- */
 function ScadaEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const net = networkOf(data?.network);
   const redundant = !!data?.redundant;
   const proto = data?.protocol && data.protocol !== 'Default' ? data.protocol : '';
   const label = [proto, net.short, redundant ? 'Dual Ring' : ''].filter(Boolean).join(' · ');
+
   return (
     <>
       <BaseEdge
@@ -91,7 +198,6 @@ function ScadaEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
           strokeDasharray: net.dash,
         }}
       />
-      {/* Dark centre line turns the thick stroke into a double line (ring) */}
       {redundant && (
         <path
           d={path}
@@ -128,7 +234,7 @@ const nextId = () => `node_${idCounter++}`;
 function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
-  const [sel, setSel] = useState(null); // { type: 'node' | 'edge', id }
+  const [sel, setSel] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const io = useMemo(() => computeIoAggregation(nodes, edges), [nodes, edges]);
@@ -149,7 +255,6 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
     [nodes, requirements, io]
   );
 
-  // Force the custom edge type so older saved projects still render
   const displayEdges = useMemo(() => edges.map((e) => ({ ...e, type: 'scada', animated: false })), [edges]);
 
   const selectedNode = sel?.type === 'node' ? nodes.find((n) => n.id === sel.id) : null;
@@ -192,6 +297,7 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
   };
 
   const addByTap = (kind) => {
+    if (!wrapperRef.current) return;
     const r = wrapperRef.current.getBoundingClientRect();
     const off = (nodes.length % 5) * 28;
     addNode(kind, screenToFlowPosition({ x: r.left + r.width / 2 - 75 + off, y: r.top + r.height / 3 + off }));
@@ -216,12 +322,10 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
 
   return (
     <div className="h-full flex relative">
-      {/* Desktop palette (ecosystem-aware) */}
       <aside className="hidden md:block w-48 shrink-0 bg-scada-panel border-r border-scada-line p-2 overflow-y-auto">
         <EquipmentPanel ecosystem={ecosystem} onAdd={addByTap} variant="sidebar" />
       </aside>
 
-      {/* Canvas */}
       <div className="flex-1 min-w-0 relative" ref={wrapperRef}>
         <ReactFlow
           nodes={displayNodes}
@@ -266,7 +370,6 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
           </Panel>
         </ReactFlow>
 
-        {/* Live licensing / I-O pill */}
         {nodes.length > 0 && (
           <div className="absolute top-2 left-2 right-2 z-10 pointer-events-none flex flex-wrap gap-1.5">
             <span className="px-2.5 py-1 rounded-full bg-scada-panel/95 border border-scada-line text-[11px] shadow">
@@ -282,7 +385,6 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
           </div>
         )}
 
-        {/* Mobile FAB */}
         <button
           onClick={() => setSheetOpen(true)}
           aria-label="Add equipment"
@@ -293,7 +395,6 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
           <Plus className="w-7 h-7" />
         </button>
 
-        {/* Mobile equipment bottom sheet */}
         <div
           onClick={() => setSheetOpen(false)}
           className={`md:hidden absolute inset-0 z-20 bg-black/50 transition-opacity ${
@@ -317,7 +418,6 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
         </div>
       </div>
 
-      {/* Properties: right side panel on desktop, slide-up drawer on mobile */}
       <PropertiesPanel
         node={selectedNode}
         edge={selectedEdge}
