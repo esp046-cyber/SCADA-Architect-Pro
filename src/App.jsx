@@ -61,8 +61,8 @@ export default function App() {
     }
   }, [nodes.length, requirements.length, setNodes, setEdges, setRequirements]);
 
-  const unmapped = requirements.filter(
-    (r) => !r.linkedNodes.some((id) => nodes.some((n) => n.id === id))
+  const unmapped = (requirements || []).filter(
+    (r) => !(r.linkedNodes || []).some((id) => (nodes || []).some((n) => n.id === id))
   ).length;
 
   const tabBtn = (id, Icon, label, badge) => (
