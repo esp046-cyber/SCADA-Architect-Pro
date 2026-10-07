@@ -30,7 +30,7 @@ To show actual pictures of your app, you need to take screenshots, save them in 
 
 Add this code where you want the images to appear:
 
-```markdown
+
 <div align="center">
   <!-- Replace logo.png with your actual logo file name -->
   <img src="./public/icon-512.png" alt="SCADA Architect Pro Logo" width="150"/>
