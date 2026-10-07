@@ -15,7 +15,7 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
   const [priority, setPriority] = useState(PRIORITIES[0]);
   const [linked, setLinked] = useState([]);
 
-  const nodeName = (id) => nodes.find((n) => n.id === id)?.data.label;
+  const getNode = (id) => nodes.find((n) => n.id === id);
 
   const toggleLink = (id) =>
     setLinked((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
@@ -38,16 +38,16 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
 
   const toggleNodeOnReq = (reqId, nodeId) =>
     setRequirements((rs) =>
-      rs.map((r) =>
-        r.id === reqId
-          ? {
-              ...r,
-              linkedNodes: r.linkedNodes.includes(nodeId)
-                ? r.linkedNodes.filter((x) => x !== nodeId)
-                : [...r.linkedNodes, nodeId],
-            }
-          : r
-      )
+      rs.map((r) => {
+        if (r.id !== reqId) return r;
+        const currentLinks = r.linkedNodes || [];
+        return {
+          ...r,
+          linkedNodes: currentLinks.includes(nodeId)
+            ? currentLinks.filter((x) => x !== nodeId)
+            : [...currentLinks, nodeId],
+        };
+      })
     );
 
   const metCount = requirements.filter((r) => r.met).length;
@@ -119,62 +119,67 @@ export default function RequirementPanel({ nodes, requirements, setRequirements 
             No requirements yet. Add one above, then link it to topology nodes.
           </li>
         )}
-        {requirements.map((r) => (
-          <li key={r.id} className="rounded-lg border border-scada-line bg-scada-bg p-2.5">
-            <div className="flex items-start gap-2">
-              <button onClick={() => toggleMet(r.id)} aria-label="Toggle met" className="mt-0.5 shrink-0 p-1 -m-1">
-                {r.met ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Circle className="w-4 h-4 text-slate-500" />
-                )}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs ${r.met ? 'line-through text-slate-500' : ''}`}>{r.text}</p>
-                <div className="flex gap-1.5 mt-1">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60">{r.category}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLE[r.priority]}`}>
-                    {r.priority}
-                  </span>
-                </div>
+        {requirements.map((r) => {
+          const reqLinks = r.linkedNodes || [];
+          const validLinkedIds = reqLinks.filter((id) => getNode(id));
 
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {r.linkedNodes.filter(nodeName).map((id) => (
-                    <button
-                      key={id}
-                      onClick={() => toggleNodeOnReq(r.id, id)}
-                      title="Click to unlink"
-                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-scada-accent/20 text-scada-accent hover:bg-red-500/20 hover:text-red-300"
+          return (
+            <li key={r.id} className="rounded-lg border border-scada-line bg-scada-bg p-2.5">
+              <div className="flex items-start gap-2">
+                <button onClick={() => toggleMet(r.id)} aria-label="Toggle met" className="mt-0.5 shrink-0 p-1 -m-1">
+                  {r.met ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500" />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs ${r.met ? 'line-through text-slate-500' : ''}`}>{r.text}</p>
+                  <div className="flex gap-1.5 mt-1">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60">{r.category}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLE[r.priority]}`}>
+                      {r.priority}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {validLinkedIds.map((id) => (
+                      <button
+                        key={id}
+                        onClick={() => toggleNodeOnReq(r.id, id)}
+                        title="Click to unlink"
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-scada-accent/20 text-scada-accent hover:bg-red-500/20 hover:text-red-300"
+                      >
+                        {getNode(id)?.data?.label || id}
+                      </button>
+                    ))}
+                    {validLinkedIds.length === 0 && (
+                      <span className="text-[10px] text-amber-400">Unmapped</span>
+                    )}
+                  </div>
+
+                  {nodes.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value && toggleNodeOnReq(r.id, e.target.value)}
+                      className="mt-1.5 w-full px-1.5 py-2 md:py-1 text-sm md:text-[10px] rounded bg-scada-panel border border-scada-line"
                     >
-                      {nodeName(id)}
-                    </button>
-                  ))}
-                  {r.linkedNodes.filter(nodeName).length === 0 && (
-                    <span className="text-[10px] text-amber-400">Unmapped</span>
+                      <option value="">+ Link / unlink node…</option>
+                      {nodes.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {reqLinks.includes(n.id) ? '✓ ' : ''}{n.data.label}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
-
-                {nodes.length > 0 && (
-                  <select
-                    value=""
-                    onChange={(e) => e.target.value && toggleNodeOnReq(r.id, e.target.value)}
-                    className="mt-1.5 w-full px-1.5 py-2 md:py-1 text-sm md:text-[10px] rounded bg-scada-panel border border-scada-line"
-                  >
-                    <option value="">+ Link / unlink node…</option>
-                    {nodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {r.linkedNodes.includes(n.id) ? '✓ ' : ''}{n.data.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <button onClick={() => remove(r.id)} aria-label="Delete" className="text-slate-500 hover:text-red-400 p-1 -m-1">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button onClick={() => remove(r.id)} aria-label="Delete" className="text-slate-500 hover:text-red-400 p-1 -m-1">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </aside>
   );
