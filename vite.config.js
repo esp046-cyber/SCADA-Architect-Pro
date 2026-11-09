@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: './', // Ensures assets resolve correctly on GitHub Pages or subfolders
+  base: '/SCADA-Architect-Pro/', // Required for GitHub Pages repository deployment
   plugins: [
     react(),
     VitePWA({
