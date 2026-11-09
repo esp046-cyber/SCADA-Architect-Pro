@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-// useState that persists to localStorage (debounced, and flushed when the app is backgrounded).
+// useState that persists to localStorage (debounced, flushed on background, and cross-tab synced).
 export default function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => {
     try {
@@ -35,11 +35,29 @@ export default function useLocalStorage(key, initialValue) {
     };
     document.addEventListener('visibilitychange', flush);
     window.addEventListener('pagehide', write);
+    
     return () => {
       document.removeEventListener('visibilitychange', flush);
       window.removeEventListener('pagehide', write);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // NEW: Cross-tab synchronization
+  // If the user modifies the architecture in another tab, update this tab automatically.
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === key && e.newValue !== null) {
+        try {
+          setValue(JSON.parse(e.newValue));
+        } catch {
+          // Ignore parsing errors from other tabs
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [key]);
 
   return [value, setValue];
