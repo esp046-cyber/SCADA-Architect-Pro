@@ -53,13 +53,14 @@ export default function App() {
   );
 
   const handleNew = useCallback(() => {
-    if (!nodes.length && !requirements.length) return;
+    // Added optional chaining (?.) to prevent crashes if local storage returns null
+    if (!nodes?.length && !requirements?.length) return;
     if (window.confirm('Start a new project? Unsaved work will be cleared.')) {
       setNodes([]);
       setEdges([]);
       setRequirements([]);
     }
-  }, [nodes.length, requirements.length, setNodes, setEdges, setRequirements]);
+  }, [nodes, requirements, setNodes, setEdges, setRequirements]);
 
   const unmapped = (requirements || []).filter(
     (r) => !(r.linkedNodes || []).some((id) => (nodes || []).some((n) => n.id === id))
@@ -105,7 +106,8 @@ export default function App() {
       <main className="flex-1 flex min-h-0 flex-col md:flex-row">
         {/* Both views stay mounted so state and canvas survive tab switches */}
         <div className={`${tab === 'studio' ? 'flex' : 'hidden'} md:flex flex-1 min-h-0 min-w-0 flex-col`}>
-          <div className="flex-1 min-h-0">
+          {/* Added relative, h-full, and w-full to anchor the React Flow canvas properly */}
+          <div className="flex-1 relative h-full w-full min-h-0">
             <TopologyStudio
               nodes={nodes}
               setNodes={setNodes}
