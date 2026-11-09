@@ -2,8 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body { height: 100%; margin: 0; }
-#root { height: 100%; height: 100dvh; }
+html, body { 
+  height: 100%; 
+  margin: 0; 
+  overflow: hidden; /* Strictly locks the viewport to prevent scroll bounce */
+}
+
+#root { 
+  height: 100%; 
+  height: 100dvh; 
+  display: flex; /* Ensures the flex children in App.jsx scale perfectly */
+  flex-direction: column;
+}
+
 body {
   background: #0b1220;
   color: #e2e8f0;
@@ -11,6 +22,14 @@ body {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  -webkit-user-select: none; /* Prevents text highlighting while dragging nodes */
+  user-select: none;
+}
+
+/* Re-enable text selection where it is actually needed */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
 }
 
 .react-flow__attribution { display: none; }
@@ -18,6 +37,10 @@ body {
 .react-flow__controls button:hover { background: #1b2a4a; }
 .react-flow__controls button svg { fill: currentColor; }
 .react-flow__pane { touch-action: none; }
+
+/* Ensures the React Flow MiniMap matches your dark SCADA theme */
+.react-flow__minimap { background: #0b1220; border: 1px solid #22304d; border-radius: 8px; }
+.react-flow__minimap-mask { fill: rgba(11, 18, 32, 0.7); }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
