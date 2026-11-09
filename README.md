@@ -242,11 +242,18 @@ licensing: { product: 'FactoryTalk', tiers: tiers('Tags', [500, 1000, 5000, 2500
 
 ## Deployment
 
-The live site is built and published to GitHub Pages by a GitHub Actions workflow on every push to `main`.
+The live site is served from the **`gh-pages` branch** (repository **Settings → Pages → Deploy from a branch**). Pushing to `main` does **not** update it. To publish a new version:
+
+```bash
+npm run deploy    # builds the app, then pushes dist/ to the gh-pages branch
+```
+
+GitHub Pages republishes within a minute or two. The **Deployments** counter on the repository page goes up by one when it is done.
 
 - **Sub-path hosting:** `vite.config.js` sets `base: '/SCADA-Architect-Pro/'`. If you fork or rename the repository, change it to match.
-- **Choose one method:** the Actions workflow, or `npm run deploy` (which pushes `dist` to a `gh-pages` branch). Running both causes confusion about which version is live.
-- **After deploying**, hard-refresh (Ctrl+Shift+R). The service worker caches aggressively, so a normal reload can show the previous version.
+- **Installed and returning users:** the service worker caches the app, so people see a "A new version is available" prompt after a deploy. Accept it to load the update.
+- **After deploying**, hard-refresh (Ctrl+Shift+R) to bypass the cache while testing.
+- **Keep source and site in sync:** commit and push to `main` as usual, then run `npm run deploy`.
 
 ### Before you go live
 
