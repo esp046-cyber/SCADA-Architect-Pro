@@ -11,6 +11,19 @@ import {
 } from '../lib/scada.js';
 import { NODE_KINDS } from '../lib/ecosystems.js';
 
+const getNetworkOptions = () => {
+    if (!NETWORK_TYPES) return [];
+    if (Array.isArray(NETWORK_TYPES)) {
+      return NETWORK_TYPES.map((n) =>
+        typeof n === 'string' ? { id: n, label: n } : { id: n.id || n.key, label: n.label || n.name || n.id }
+      );
+    }
+    return Object.entries(NETWORK_TYPES).map(([key, n]) => ({
+      id: key,
+      label: typeof n === 'object' ? n.label || n.name || key : String(n),
+    }));
+  };
+
 const inputClass =
   'w-full px-2.5 py-2 md:px-2 md:py-1.5 text-base md:text-xs rounded bg-scada-bg border border-scada-line focus:outline-none focus:border-scada-accent font-sans';
 
@@ -263,22 +276,22 @@ export default function PropertiesPanel({
           </select>
         </Field>
 
-        {NETWORK_TYPES && Array.isArray(NETWORK_TYPES) && (
+      {NETWORK_TYPES && (
           <Field label="Network Type">
             <select
               className={inputClass}
               value={d.network || 'unspecified'}
               onChange={(e) => onUpdateEdge(edge.id, { network: e.target.value })}
             >
-              {NETWORK_TYPES.map((n) => (
-                <option key={n.id || n} value={n.id || n}>
-                  {n.name || n.label || n}
+              {getNetworkOptions().map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.label}
                 </option>
               ))}
             </select>
           </Field>
         )}
-
+        
         {NETWORK_ZONES && (
           <Field label="Network Zone">
             <select
