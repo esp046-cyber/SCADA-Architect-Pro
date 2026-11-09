@@ -16,6 +16,34 @@ export const PROTOCOLS = {
 
 export const PROTOCOL_LIST = Object.values(PROTOCOLS).map((p) => p.label);
 
+/*
+  Edges can carry a protocol as a registry key ('opcua', set by the properties panel dropdown)
+  or as a display label ('Default', set when an edge is first created). These helpers accept
+  either form so validation, exports and the canvas agree with each other.
+*/
+const protocolEntry = (v) => {
+  if (v == null) return null;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return null;
+  return Object.entries(PROTOCOLS).find(([k, p]) => k === s || p.label.toLowerCase() === s) || null;
+};
+
+/** Human-readable protocol name for any stored value ('opcua' -> 'OPC UA'). */
+export const protocolLabel = (v) => {
+  const entry = protocolEntry(v);
+  if (entry) return entry[1].label;
+  return v && String(v).trim() ? String(v).trim() : PROTOCOLS.default.label;
+};
+
+/** True when a real protocol has been chosen (empty and 'Default' both count as unspecified). */
+export const isProtocolSpecified = (v) => {
+  const entry = protocolEntry(v);
+  if (entry) return entry[0] !== 'default';
+  return !!(v && String(v).trim());
+};
+
+// NOTE: NETWORK_ZONES, NETWORK_TYPES and PROTOCOLS[].zone describe overlapping ideas.
+// They are kept as-is because the properties panel and canvas import them directly.
 export const NETWORK_ZONES = {
   enterprise: { label: 'Enterprise / IT', color: '#3b82f6', borderStyle: 'solid' },
   dmz: { label: 'Industrial DMZ', color: '#a855f7', borderStyle: 'dashed' },
@@ -47,29 +75,42 @@ export const toNum = (v) => {
 
 export const fmt = (n) => Number(n).toLocaleString('en-US');
 
-export const isValidIPv4 = (s) =>
-  /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(s);
+// Strict dotted-quad: rejects leading zeros (01.02.003.004) and non-strings.
+const OCTET = '(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
+const IPV4_RE = new RegExp(`^${OCTET}(\\.${OCTET}){3}$`);
+export const isValidIPv4 = (s) => typeof s === 'string' && IPV4_RE.test(s);
 
 /**
- * Validates topology integrity for OT compliance
+ * Validates topology integrity for OT compliance.
+ * Returns [{ nodeId?, edgeId?, type: 'error' | 'warning' | 'info', message }].
  */
 export function validateTopology({ nodes = [], edges = [] }) {
   const warnings = [];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const nameOf = (id) => byId.get(id)?.data?.label || id;
+  const ipOf = (data) => data?.ip || data?.ipAddress || ''; // the panel writes both keys
+
+  const ipOwners = new Map();
 
   nodes.forEach((node) => {
     const data = node.data || {};
     const label = data.label || node.id;
+    const ip = ipOf(data);
 
-    // IP Validation
-    if (data.ip && !isValidIPv4(data.ip)) {
-      warnings.push({
-        nodeId: node.id,
-        type: 'error',
-        message: `${label}: Invalid IPv4 format (${data.ip})`,
-      });
+    // IP validation
+    if (ip) {
+      if (!isValidIPv4(ip)) {
+        warnings.push({
+          nodeId: node.id,
+          type: 'error',
+          message: `${label}: Invalid IPv4 format (${ip})`,
+        });
+      } else {
+        ipOwners.set(ip, [...(ipOwners.get(ip) || []), node.id]);
+      }
     }
 
-    // Safety & Redundancy Warnings
+    // Safety & redundancy
     if (data.kind === 'esd' && (!data.sil || data.sil === 'None')) {
       warnings.push({
         nodeId: node.id,
@@ -78,7 +119,7 @@ export function validateTopology({ nodes = [], edges = [] }) {
       });
     }
 
-    if ((roleOf(data.kind) === 'plc') && (!data.redundancy || data.redundancy === 'None')) {
+    if (roleOf(data.kind) === 'plc' && (!data.redundancy || data.redundancy === 'None')) {
       warnings.push({
         nodeId: node.id,
         type: 'info',
@@ -87,13 +128,33 @@ export function validateTopology({ nodes = [], edges = [] }) {
     }
   });
 
-  // Edge Protocol Check
+  // Duplicate IPs
+  ipOwners.forEach((ids, ip) => {
+    if (ids.length < 2) return;
+    ids.forEach((id) =>
+      warnings.push({
+        nodeId: id,
+        type: 'error',
+        message: `${nameOf(id)}: IP ${ip} is also used by ${ids.filter((o) => o !== id).map(nameOf).join(', ')}.`,
+      })
+    );
+  });
+
+  // Edge checks
   edges.forEach((edge) => {
-    if (!edge.data?.protocol) {
+    if (!byId.has(edge.source) || !byId.has(edge.target)) {
+      warnings.push({
+        edgeId: edge.id,
+        type: 'error',
+        message: `Connection ${edge.id} points to a node that no longer exists.`,
+      });
+      return;
+    }
+    if (!isProtocolSpecified(edge.data?.protocol)) {
       warnings.push({
         edgeId: edge.id,
         type: 'warning',
-        message: `Unspecified protocol on connection between nodes.`,
+        message: `${nameOf(edge.source)} - ${nameOf(edge.target)}: no industrial protocol selected.`,
       });
     }
   });
@@ -109,7 +170,7 @@ export function estimateLicense(nodes, ecosystem = 'aveva') {
   nodes.forEach((n) => {
     const t = toNum(n.data?.tagCount);
     total += t;
-    const k = n.data?.kind;
+    const k = n.data?.kind || 'unknown';
     byKind[k] = (byKind[k] || 0) + t;
   });
   let tierName;
@@ -136,6 +197,7 @@ export function computeIoAggregation(nodes, edges) {
 
   const assignment = {};
   const unassigned = [];
+  const multiHomed = []; // panels reachable from 2+ PLCs at the same hop distance (counted on each)
   let totalIO = 0;
   let assignedIO = 0;
 
@@ -146,7 +208,7 @@ export function computeIoAggregation(nodes, edges) {
       totalIO += io;
       const seen = new Set([f.id]);
       let frontier = [f.id];
-      let found = [];
+      const found = [];
       while (frontier.length && !found.length) {
         const next = [];
         for (const id of frontier) {
@@ -163,6 +225,7 @@ export function computeIoAggregation(nodes, edges) {
       assignment[f.id] = found;
       if (found.length) {
         assignedIO += io;
+        if (found.length > 1) multiHomed.push(f.id);
         found.forEach((pid) => {
           if (perPlc[pid]) {
             perPlc[pid].io += io;
@@ -174,16 +237,21 @@ export function computeIoAggregation(nodes, edges) {
       }
     });
 
-  return { perPlc, assignment, unassigned, totalIO, assignedIO };
+  return { perPlc, assignment, unassigned, multiHomed, totalIO, assignedIO };
 }
 
 /* ---------- CSV Export ---------- */
+// Only strings can carry spreadsheet formulas, so numbers are left alone (-5 stays -5).
+// Leading = + - @ TAB CR are neutralised per OWASP CSV-injection guidance.
 const cell = (v) => {
   let s = String(v ?? '');
-  if (/^[=+\-@]/.test(s)) s = "'" + s; // neutralise spreadsheet formula injection
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return `"${s.replace(/"/g, '""')}"`;
 };
 const row = (...cols) => cols.map(cell).join(',');
+
+const UTF8_BOM = '\uFEFF'; // lets Excel detect UTF-8
+const EOL = '\r\n';
 
 export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosystem = 'aveva' }) {
   const lic = estimateLicense(nodes, ecosystem);
@@ -192,7 +260,7 @@ export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosyst
 
   const kindCounts = {};
   nodes.forEach((n) => {
-    const k = n.data?.kind;
+    const k = n.data?.kind || 'unknown';
     kindCounts[k] = kindCounts[k] || { qty: 0 };
     kindCounts[k].qty += 1;
   });
@@ -212,6 +280,9 @@ export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosyst
     row('Total I/O', io.totalIO),
     row('Assigned to a PLC', io.assignedIO),
     row('Unassigned (no PLC reachable)', io.totalIO - io.assignedIO),
+    ...(io.multiHomed.length
+      ? [row('Note', `Panels reachable from more than one PLC are counted on each, so per-PLC totals may exceed Total I/O: ${io.multiHomed.map(nameOf).join(' | ')}`)]
+      : []),
     row('PLC', 'Aggregated I/O', 'Connected Panels'),
     ...Object.entries(io.perPlc).map(([pid, v]) => row(nameOf(pid), v.io, v.panels.map(nameOf).join(' | '))),
     '',
@@ -224,8 +295,8 @@ export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosyst
     ...nodes.map((n) =>
       row(
         n.data?.label || n.id,
-        KIND_LABELS[n.data?.kind] || n.data?.kind,
-        n.data?.ip || '',
+        KIND_LABELS[n.data?.kind] || n.data?.kind || 'unknown',
+        n.data?.ip || n.data?.ipAddress || '',
         n.data?.redundancy || 'None',
         n.data?.sil || 'N/A',
         toNum(n.data?.tagCount),
@@ -244,7 +315,7 @@ export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosyst
       row(
         nameOf(e.source),
         nameOf(e.target),
-        e.data?.protocol || 'Default',
+        protocolLabel(e.data?.protocol),
         networkOf(e.data?.network).name,
         e.data?.redundant ? 'Yes' : 'No'
       )
@@ -256,5 +327,5 @@ export function buildBomCsv({ nodes = [], edges = [], requirements = [], ecosyst
     row('Requirements', requirements.length),
   ];
 
-  return { csv: lines.join('\n'), licensing: lic, io };
+  return { csv: UTF8_BOM + lines.join(EOL), licensing: lic, io };
 }
