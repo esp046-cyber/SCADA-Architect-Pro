@@ -23,7 +23,6 @@ import {
   Tags,
   Gauge,
   AlertTriangle,
-  ShieldAlert,
   RefreshCw,
   Cpu,
 } from 'lucide-react';
@@ -37,97 +36,7 @@ import {
   computeIoAggregation,
   toNum,
   fmt,
-  PROTOCOLS,
-  NETWORK_ZONES,
 } from '../lib/scada.js';
-
-/* ---------- Custom SVG Edge for Network Zones ---------- */
-export function ProtocolEdge({ id, sourceX, sourceY, targetX, targetY, protocol = 'opcua', zone = 'control' }) {
-  const edgeZone = NETWORK_ZONES[zone] || NETWORK_ZONES.control;
-  const protoData = PROTOCOLS[protocol] || { label: protocol.toUpperCase() };
-
-  const midX = (sourceX + targetX) / 2;
-  const midY = (sourceY + targetY) / 2;
-
-  const path = `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY + targetY) / 2}, ${targetX} ${(sourceY + targetY) / 2}, ${targetX} ${targetY}`;
-
-  return (
-    <g className="group cursor-pointer">
-      <path
-        d={path}
-        fill="none"
-        stroke={edgeZone.color}
-        strokeWidth={2}
-        strokeDasharray={edgeZone.borderStyle === 'dashed' ? '5,5' : edgeZone.borderStyle === 'dotted' ? '2,2' : 'none'}
-        className="transition-all group-hover:stroke-scada-accent group-hover:stroke-[3px]"
-      />
-      <foreignObject x={midX - 40} y={midY - 12} width={80} height={24}>
-        <div className="flex items-center justify-center">
-          <span
-            style={{ borderColor: edgeZone.color }}
-            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-scada-bg text-slate-200 border shadow-md truncate max-w-[76px]"
-          >
-            {protoData.label}
-          </span>
-        </div>
-      </foreignObject>
-    </g>
-  );
-}
-
-/* ---------- High-Density Node Component Card ---------- */
-export function DenseNodeCard({ node, selected, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      className={`w-64 rounded-lg bg-scada-panel border transition-all p-2.5 select-none ${
-        selected ? 'border-scada-accent shadow-lg shadow-scada-accent/10 ring-1 ring-scada-accent' : 'border-scada-line hover:border-slate-500'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-scada-line/60 pb-1.5 mb-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Cpu className="w-4 h-4 text-scada-accent shrink-0" />
-          <span className="text-xs font-bold text-slate-100 truncate">{node.label}</span>
-        </div>
-        {node.redundancy && node.redundancy !== 'None' && (
-          <span title={`Redundancy: ${node.redundancy}`} className="flex items-center gap-1 px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-mono">
-            <RefreshCw className="w-2.5 h-2.5 animate-spin-slow" /> HA
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-slate-300 bg-scada-bg/60 p-1.5 rounded border border-scada-line/40 mb-2">
-        <div>
-          <span className="text-slate-500 block text-[8px] uppercase">IP Address</span>
-          <span className="text-scada-accent font-semibold">{node.ipAddress || '192.168.1.X'}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 block text-[8px] uppercase">VLAN ID</span>
-          <span>{node.vlan || 'VLAN 10'}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 block text-[8px] uppercase">Tag Count</span>
-          <span>{(node.tagCount || 0).toLocaleString()} Tags</span>
-        </div>
-        <div>
-          <span className="text-slate-500 block text-[8px] uppercase">I/O Points</span>
-          <span>{node.ioCount || 0} Points</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
-        <span className="truncate max-w-[120px]" title={node.firmware}>
-          FW: {node.firmware || 'v1.0.0'}
-        </span>
-        {node.sil && node.sil !== 'None' && (
-          <span className="flex items-center gap-1 text-amber-400 font-bold bg-amber-400/10 px-1 rounded">
-            <ShieldAlert className="w-3 h-3" /> {node.sil}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ---------- Custom Node ---------- */
 function ScadaNode({ data, selected }) {
@@ -228,6 +137,7 @@ function ScadaEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
 
 const nodeTypes = { scada: ScadaNode };
 const edgeTypes = { scada: ScadaEdge };
+const defaultEdgeOptions = { type: 'scada' }; // Ensures drag-and-drop preview lines match styling
 let idCounter = Date.now();
 const nextId = () => `node_${idCounter++}`;
 
@@ -273,6 +183,19 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
       ),
     [setEdges]
   );
+
+  // Syncs selection state natively from ReactFlow, handling clicks, deselects, and keyboard deletions
+  const onSelectionChange = useCallback(({ nodes, edges }) => {
+    if (nodes.length > 0) {
+      setSel({ type: 'node', id: nodes[0].id });
+      setSheetOpen(false);
+    } else if (edges.length > 0) {
+      setSel({ type: 'edge', id: edges[0].id });
+      setSheetOpen(false);
+    } else {
+      setSel(null);
+    }
+  }, []);
 
   const onDragOver = (e) => {
     e.preventDefault();
@@ -332,17 +255,13 @@ function Studio({ nodes, setNodes, edges, setEdges, requirements, ecosystem }) {
           edges={displayEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onSelectionChange={onSelectionChange}
           onDrop={onDrop}
           onDragOver={onDragOver}
-          onNodeClick={(_, n) => setSel({ type: 'node', id: n.id })}
-          onEdgeClick={(_, e) => setSel({ type: 'edge', id: e.id })}
-          onPaneClick={() => {
-            setSel(null);
-            setSheetOpen(false);
-          }}
           deleteKeyCode={['Backspace', 'Delete']}
           panOnDrag={true}
           zoomOnPinch={true}
