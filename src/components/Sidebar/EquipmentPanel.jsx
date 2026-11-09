@@ -19,7 +19,11 @@ export default function EquipmentPanel({ ecosystem, onAdd, variant = 'sidebar' }
             <h3 className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">{g.name}</h3>
             <div className="grid grid-cols-2 gap-2.5">
               {g.items.map((kind) => {
-                const { label, icon: Icon, color } = NODE_KINDS[kind];
+                const { label = 'Unknown', icon: Icon, color = '#fff' } = NODE_KINDS[kind] || {};
+                
+                // Prevent React crashes if an icon is missing from the configuration
+                if (!Icon) return null; 
+
                 return (
                   <button
                     key={kind}
@@ -39,21 +43,30 @@ export default function EquipmentPanel({ ecosystem, onAdd, variant = 'sidebar' }
   }
 
   return (
-    <div>
-      <h2 className="text-[10px] uppercase tracking-wider text-scada-accent mb-2">{eco.short} equipment</h2>
-      <div className="space-y-3">
+    // Added flex and min-h-0 to allow the child to scroll properly
+    <div className="flex flex-col h-full min-h-0">
+      <h2 className="text-[10px] uppercase tracking-wider text-scada-accent mb-2 shrink-0">{eco.short} equipment</h2>
+      
+      {/* Added overflow-y-auto so the sidebar list can scroll if it gets too long */}
+      <div className="space-y-3 overflow-y-auto flex-1 pb-4 pr-1">
         {groups.map((g) => (
           <div key={g.id}>
             <h3 className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{g.name}</h3>
             <div className="space-y-1.5">
               {g.items.map((kind) => {
-                const { label, icon: Icon, color } = NODE_KINDS[kind];
+                const { label = 'Unknown', icon: Icon, color = '#fff' } = NODE_KINDS[kind] || {};
+                
+                // Prevent React crashes if an icon is missing from the configuration
+                if (!Icon) return null; 
+
                 return (
                   <div
                     key={kind}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/scada-kind', kind);
+                      // Fallback required by Firefox to allow dragging to trigger
+                      e.dataTransfer.setData('text/plain', kind); 
                       e.dataTransfer.effectAllowed = 'move';
                     }}
                     onClick={() => onAdd(kind)}
