@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -35,10 +35,10 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
   const coveragePct = requirements.length > 0 ? Math.round((mappedCount / requirements.length) * 100) : 0;
   const metCount = requirements.filter((r) => r.met).length;
 
-  const getNode = (id) => nodes.find((n) => n.id === id);
+  const getNode = (id) => nodes.find((n) => String(n.id) === String(id));
 
   const toggleLink = (id) =>
-    setLinked((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
+    setLinked((l) => (l.includes(String(id)) ? l.filter((x) => x !== String(id)) : [...l, String(id)]));
 
   const add = (e) => {
     e?.preventDefault();
@@ -50,7 +50,7 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
         text: text.trim(),
         category,
         priority,
-        linkedNodes: linked,
+        linkedNodes: [...linked], // Ensure a fresh copy of the array is saved
         met: false,
       },
     ]);
@@ -75,19 +75,29 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
 
   const remove = (id) => setRequirements((rs) => rs.filter((r) => r.id !== id));
 
-  const toggleNodeOnReq = (reqId, nodeId) =>
+  const toggleNodeOnReq = (reqId, nodeId) => {
+    const targetId = String(nodeId);
     setRequirements((rs) =>
       rs.map((r) => {
         if (r.id !== reqId) return r;
-        const currentLinks = r.linkedNodes || [];
+        const currentLinks = (r.linkedNodes || []).map(String);
         return {
           ...r,
-          linkedNodes: currentLinks.includes(nodeId)
-            ? currentLinks.filter((x) => x !== nodeId)
-            : [...currentLinks, nodeId],
+          linkedNodes: currentLinks.includes(targetId)
+            ? currentLinks.filter((x) => x !== targetId)
+            : [...currentLinks, targetId],
         };
       })
     );
+  };
+
+  // Performance Optimization: Generate the base node options once per render, not per requirement
+  const baseNodeOptions = useMemo(() => {
+    return nodes.map((n) => ({
+      id: String(n.id),
+      label: n.data?.label || n.id,
+    }));
+  }, [nodes]);
 
   return (
     <aside className="w-full md:w-96 h-full min-h-0 shrink-0 bg-scada-panel md:border-l border-scada-line flex flex-col">
@@ -143,7 +153,7 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
                 <Link2 className="w-3 h-3" /> Link to nodes
               </p>
               <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                {nodes.map((n) => (
+                {baseNodeOptions.map((n) => (
                   <button
                     type="button"
                     key={n.id}
@@ -154,7 +164,7 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
                         : 'border-scada-line text-slate-300 hover:border-scada-accent'
                     }`}
                   >
-                    {n.data?.label || n.id}
+                    {n.label}
                   </button>
                 ))}
               </div>
@@ -211,7 +221,7 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
           </div>
         ) : (
           requirements.map((r) => {
-            const reqLinks = r.linkedNodes || [];
+            const reqLinks = (r.linkedNodes || []).map(String);
             const validLinkedIds = reqLinks.filter((id) => getNode(id));
 
             return (
@@ -264,9 +274,9 @@ export default function RequirementPanel({ nodes = [], requirements = [], setReq
                         className="mt-1.5 w-full px-1.5 py-1 text-[10px] rounded bg-scada-panel border border-scada-line text-slate-300"
                       >
                         <option value="">+ Link / unlink node…</option>
-                        {nodes.map((n) => (
+                        {baseNodeOptions.map((n) => (
                           <option key={n.id} value={n.id}>
-                            {reqLinks.includes(n.id) ? '✓ ' : ''}{n.data?.label || n.id}
+                            {reqLinks.includes(n.id) ? '✓ ' : ''}{n.label}
                           </option>
                         ))}
                       </select>
