@@ -1,17 +1,28 @@
 {
+  "id": "/SCADA-Architect-Pro/",
   "name": "SCADA Architect Pro",
   "short_name": "SCADA Architect",
-  "description": "Topology and requirement mapping studio for Wonderware SCADA engineers.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "Topology and requirement mapping studio for SCADA engineers (AVEVA, Siemens, Rockwell, GE).",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#0b1220",
   "background_color": "#0b1220",
   "categories": ["productivity", "utilities"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "./preview.png",
+      "sizes": "1600x789",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Topology canvas with equipment palette and requirement matrix"
+    }
   ]
 }
