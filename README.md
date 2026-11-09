@@ -250,7 +250,7 @@ The live site is built and published to GitHub Pages by a GitHub Actions workflo
 
 ### Before you go live
 
-- [ ] In `index.html`, replace `https://your-domain.example/` (canonical, `og:url`, `og:image`, `twitter:image`) with your real URL.
+- [ ] In `index.html`, update the canonical, `og:url`, `og:image` and `twitter:image` URLs if you host somewhere other than `https://esp046-cyber.github.io/SCADA-Architect-Pro/`. The social card image is `public/og-image.png` (1200×630, source in [`docs/og-image.svg`](./docs/og-image.svg)).
 - [ ] Replace the PWA icons (`public/icon-192.png`, `public/icon-512.png`) if you want your own branding. The logo source is [`docs/logo.svg`](./docs/logo.svg).
 - [ ] Update `public/manifest.webmanifest` with your app name, description and theme colours.
 - [ ] Replace `public/preview.png` with a screenshot of a representative diagram.
