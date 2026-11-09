@@ -20,7 +20,12 @@ function downloadFile(file) {
   const a = document.createElement('a');
   a.href = url;
   a.download = file.name;
+  
+  // Append to body to ensure Firefox and strict browsers register the click
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
