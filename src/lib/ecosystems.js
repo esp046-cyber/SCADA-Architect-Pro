@@ -1,9 +1,24 @@
-import { Cpu, Monitor, Database, Network, HardDrive, Server, Cable, Zap, ShieldAlert } from 'lucide-react';
+import { 
+  Cpu, 
+  Monitor, 
+  Database, 
+  Network, 
+  HardDrive, 
+  Server, 
+  Cable, 
+  Zap, 
+  ShieldAlert,
+  Shield, 
+  Router, 
+  Radio, 
+  Activity 
+} from 'lucide-react';
 
 export const CATEGORIES = [
   { id: 'controllers', name: 'Controllers' },
   { id: 'hmi', name: 'HMI / Servers' },
   { id: 'network', name: 'Network & Data' },
+  { id: 'security_edge', name: 'Security & Edge' },
   { id: 'field', name: 'Field & Control' },
 ];
 
@@ -42,9 +57,15 @@ export const NODE_KINDS = {
   rio: { label: 'Remote I/O (RIO) Panel', icon: Cable, color: '#fb923c', role: 'field', category: 'field' },
   mcc: { label: 'MCC / VFD Panel', icon: Zap, color: '#fbbf24', role: 'field', category: 'field' },
   esd: { label: 'Emergency Shutdown (ESD)', icon: ShieldAlert, color: '#f43f5e', role: 'field', category: 'field' },
+
+  // --- Security & Edge ---
+  firewall: { label: 'Industrial Firewall', icon: Shield, color: '#f43f5e', role: 'network', category: 'security_edge' },
+  router: { label: 'Layer 3 Router', icon: Router, color: '#eab308', role: 'network', category: 'network' },
+  radio: { label: 'Telemetry Radio / AP', icon: Radio, color: '#8b5cf6', role: 'network', category: 'network' },
+  iot_gateway: { label: 'IoT / Edge Gateway', icon: Activity, color: '#10b981', role: 'server', category: 'security_edge' },
 };
 
-const COMMON = ['switch', 'database', 'rio', 'mcc', 'esd'];
+const COMMON = ['switch', 'router', 'firewall', 'radio', 'iot_gateway', 'database', 'rio', 'mcc', 'esd'];
 
 const tiers = (unit, list) => [
   ...list.map((max) => ({ max, name: `${max.toLocaleString('en-US')} ${unit}` })),
